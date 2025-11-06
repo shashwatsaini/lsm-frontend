@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AeroLink — Drone Operations Dashboard (Demo)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--muted:#94a3b8;--accent:#06b6d4}
+    *{box-sizing:border-box}
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial; margin:0; background:linear-gradient(180deg,#071029 0%, #081727 100%); color:#e6eef6}
+    .container{max-width:1200px;margin:28px auto;padding:20px}
+    .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    .brand{display:flex;gap:12px;align-items:center}
+    .logo{width:44px;height:44px;border-radius:8px;background:linear-gradient(135deg,#06b6d4,#7c3aed);display:flex;align-items:center;justify-content:center;font-weight:700}
+    .brand h1{font-size:18px;margin:0}
+    .card-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+    .card{background:var(--card);padding:16px;border-radius:10px;box-shadow:0 6px 18px rgba(2,6,23,0.7)}
+    .muted{color:var(--muted);font-size:13px}
+    .big{font-size:20px;font-weight:700}
+    .layout{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+    .panel{background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);padding:14px;border-radius:10px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px;text-align:left;font-size:14px}
+    tr:nth-child(odd){background:transparent}
+
+    /* Login modal */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(2,6,23,0.6);display:flex;align-items:center;justify-content:center}
+    .login{background:#071225;padding:26px;border-radius:12px;width:360px;box-shadow:0 10px 40px rgba(2,6,23,0.8)}
+    .login h2{margin:0 0 8px}
+    .field{display:flex;flex-direction:column;margin:8px 0}
+    input{padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit}
+    button{background:linear-gradient(90deg,var(--accent),#7c3aed);border:0;padding:10px 14px;border-radius:8px;color:#042027;font-weight:700;cursor:pointer}
+
+    /* small screens */
+    @media (max-width:900px){.card-grid{grid-template-columns:repeat(2,1fr)}.layout{grid-template-columns:1fr}}
+    @media (max-width:520px){.card-grid{grid-template-columns:1fr}}
+
+    .pill{display:inline-block;padding:4px 8px;border-radius:20px;background:rgba(6,182,212,0.14);color:var(--accent);font-weight:600;font-size:13px}
+    .table-scroll{max-height:320px;overflow:auto}
+    .pay-form input, .pay-form select{width:100%;margin:6px 0;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit}
+    .success{color:#10b981;font-weight:700}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo">AL</div>
+        <div>
+          <h1>AeroLink — Drone Operations</h1>
+          <div class="muted">On-demand missions · analytics · billing</div>
+        </div>
+      </div>
+      <div id="userArea"></div>
+    </div>
+
+    <div id="appRoot">
+      <!-- Cards -->
+      <div class="card-grid" id="metrics"></div>
+
+      <div class="layout">
+        <div>
+          <div class="panel card">
+            <h3>Fleet Operations</h3>
+            <div class="muted">Recent mission logs & live status</div>
+            <div class="table-scroll" style="margin-top:12px">
+              <table>
+                <thead>
+                  <tr><th>Mission</th><th>Drone</th><th>Status</th><th>Duration</th><th>Cost (₹)</th></tr>
+                </thead>
+                <tbody id="missionsTbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="panel card" style="margin-top:12px">
+            <h3>Usage Trends</h3>
+            <canvas id="usageChart" height="160"></canvas>
+          </div>
+        </div>
+
+        <div>
+          <div class="panel card">
+            <h3>Billing & Payments</h3>
+            <div class="muted">Outstanding invoice</div>
+            <div style="margin-top:10px">
+              <div id="invoiceArea"></div>
+            </div>
+            <hr style="opacity:0.06;margin:12px 0">
+            <div>
+              <h4>Pay a bill</h4>
+              <form id="payForm" class="pay-form">
+                <label>Amount (₹)</label>
+                <input type="number" id="payAmount" required min="1" value="1200">
+                <label>Payment method</label>
+                <select id="payMethod">
+                  <option>Credit Card</option>
+                  <option>UPI</option>
+                  <option>Netbanking</option>
+                </select>
+                <button type="submit">Pay Now</button>
+                <div id="payStatus" style="margin-top:10px"></div>
+              </form>
+            </div>
+          </div>
+
+          <div class="panel card" style="margin-top:12px">
+            <h3>Quick Insights</h3>
+            <div style="margin-top:8px">
+              <div class="muted">Active drones</div>
+              <div class="big" id="activeDrones">—</div>
+            </div>
+            <div style="margin-top:10px">
+              <div class="muted">This month cost</div>
+              <div class="big" id="monthCost">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="height:34px"></div>
+      <div class="muted">Demo frontend generated from your pitch deck. Visuals, numbers, and payment flow are dummy — suitable for prototype and GitHub Pages hosting.</div>
+    </div>
+  </div>
+
+  <!-- Login modal -->
+  <div id="loginModal" class="modal-backdrop">
+    <div class="login">
+      <h2>Sign in to AeroLink</h2>
+      <div class="muted">Use any credentials — this is a demo login.</div>
+      <div class="field"><label>Email</label><input id="email" placeholder="you@company.com"></div>
+      <div class="field"><label>Password</label><input id="password" type="password" placeholder="password"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px"><button id="loginBtn">Sign in</button></div>
+    </div>
+  </div>
+
+  <!-- libs -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    // --- Dummy data generator ---
+    const fakeMissions = [
+      {id: 'M-001', drone: 'AL-Scout-01', status: 'Completed', duration: '12m', cost: 420},
+      {id: 'M-002', drone: 'AL-Scout-02', status: 'In Flight', duration: '6m', cost: 210},
+      {id: 'M-003', drone: 'AL-Carrier-01', status: 'Scheduled', duration: '-', cost: 1500},
+      {id: 'M-004', drone: 'AL-Scout-04', status: 'Cancelled', duration: '-', cost: 0},
+      {id: 'M-005', drone: 'AL-Mapper-01', status: 'Completed', duration: '38m', cost: 3200},
+    ];
+
+    const metrics = [
+      {title:'Missions this month', value: 138},
+      {title:'Avg mission value (₹)', value: '₹1,420'},
+      {title:'Operators in network', value: 74},
+      {title:'Uptime', value: '99.2%'}
+    ];
+
+    // --- Login handling (dummy) ---
+    const loginModal = document.getElementById('loginModal');
+    const userArea = document.getElementById('userArea');
+
+    function renderUserArea(){
+      const user = JSON.parse(localStorage.getItem('aerolink_user'));
+      if(user){
+        userArea.innerHTML = `<div style="display:flex;gap:12px;align-items:center">
+          <div class="pill">${user.email.split('@')[0]}</div>
+          <button id="logoutBtn" style="background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px;border-radius:8px;color:inherit">Logout</button>
+        </div>`;
+        document.getElementById('logoutBtn').addEventListener('click', ()=>{localStorage.removeItem('aerolink_user');location.reload();});
+        loginModal.style.display='none';
+      } else {
+        userArea.innerHTML = `<button id="openLogin" style="background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px;border-radius:8px;color:inherit">Sign in</button>`;
+        document.getElementById('openLogin').addEventListener('click', ()=>{loginModal.style.display='flex'});
+        loginModal.style.display='flex';
+      }
+    }
+
+    document.getElementById('loginBtn').addEventListener('click', ()=>{
+      const email = document.getElementById('email').value || 'demo@aerolink.com';
+      const pw = document.getElementById('password').value || 'demo';
+      // Very naive dummy auth
+      localStorage.setItem('aerolink_user', JSON.stringify({email}));
+      renderUserArea();
+      initApp();
+    });
+
+    // init UI
+    function initApp(){
+      // metrics
+      const mg = document.getElementById('metrics'); mg.innerHTML='';
+      metrics.forEach(m=>{const c=document.createElement('div');c.className='card';c.innerHTML=`<div class="muted">${m.title}</div><div class="big">${m.value}</div>`;mg.appendChild(c)});
+
+      // missions table
+      const tbody = document.getElementById('missionsTbody'); tbody.innerHTML='';
+      fakeMissions.forEach(ms=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${ms.id}</td><td>${ms.drone}</td><td>${ms.status}</td><td>${ms.duration}</td><td>${ms.cost}</td>`;tbody.appendChild(tr)});
+
+      // quick insights
+      document.getElementById('activeDrones').innerText = 18;
+      document.getElementById('monthCost').innerText = '₹' + (fakeMissions.reduce((s,m)=>s+m.cost,0)+4200);
+
+      // usage chart
+      const ctx = document.getElementById('usageChart').getContext('2d');
+      const labels = ['Nov 1','Nov 5','Nov 10','Nov 15','Nov 20','Nov 25','Nov 30'];
+      const data = [12,18,8,24,16,22,30];
+      new Chart(ctx, {type:'line',data:{labels, datasets:[{label:'Missions',data,fill:true,tension:0.3}]}, options:{plugins:{legend:{display:false}}}});
+
+      // invoice
+      renderInvoice();
+    }
+
+    function renderInvoice(){
+      const invoiceArea = document.getElementById('invoiceArea');
+      // dummy outstanding invoice
+      const invoice = {id:'INV-2025-09',date:'2025-10-28',due:'2025-11-15',amount:4320, status:'Unpaid'};
+      invoiceArea.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-weight:700">${invoice.id}</div>
+          <div class="muted">Due ${invoice.due} · ${invoice.date}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-weight:800;font-size:18px">₹${invoice.amount}</div>
+          <div style="margin-top:6px"><span class="pill">${invoice.status}</span></div>
+        </div>
+      </div>`;
+    }
+
+    // Pay form
+    document.getElementById('payForm').addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const amt = Number(document.getElementById('payAmount').value);
+      const method = document.getElementById('payMethod').value;
+      const status = document.getElementById('payStatus');
+      status.innerHTML = 'Processing payment...';
+      // fake async simulation
+      setTimeout(()=>{
+        status.innerHTML = `<div class="success">Payment of ₹${amt} via ${method} succeeded.</div>`;
+        // update invoice area
+        document.getElementById('invoiceArea').innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:700">INV-2025-09</div>
+            <div class="muted">Paid on ${new Date().toISOString().slice(0,10)}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-weight:800;font-size:18px">₹0</div>
+            <div style="margin-top:6px"><span class="pill">Paid</span></div>
+          </div>
+        </div>`;
+      }, 900);
+    });
+
+    // boot
+    renderUserArea();
+    if(JSON.parse(localStorage.getItem('aerolink_user'))) initApp();
+  </script>
+</body>
+</html>
